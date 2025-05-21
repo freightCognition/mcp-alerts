@@ -1,0 +1,19 @@
+{
+  "eventType": "carrier.packet.completed",
+  "eventDateTime": "2025-05-21T14:37:19.3NZ",
+  "eventData": {
+    "packetDetail": {
+      "packetType": "Standard",
+      "completionDatetime": "2025-05-21T14:37:19.3NZ"
+    },
+    "carrier": {
+      "dotNumber": 9999997,
+      "docketNumber": "MC9999997",
+      "legalName": "MCP TEST CARRIER 9999997"
+    },
+    "customer": {
+      "customerID": 6,
+      "companyName": "MCP Test Customer"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+.env
+.vscode
+node_modules
+.vscode-test
+.windsurfrules

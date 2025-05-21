@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  mcp-alerts-app:
+    build: .
+    container_name: mcp_alerts_container
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}" # Uses PORT from .env, defaults to 3001
+    env_file:
+      - .env
+    restart: unless-stopped
