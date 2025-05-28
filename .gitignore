@@ -1,6 +1,11 @@
-.env
 .vscode
 node_modules
-.vscode-test
-.windsurfrules
+# Dependency directories
+node_modules/
+# Environment variables
+.env
+# OS specific
 .DS_Store
+.windsurfrules
+
+

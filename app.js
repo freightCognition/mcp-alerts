@@ -3,10 +3,9 @@ const express = require('express');
 const { App } = require('@slack/bolt');
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
-const crypto = require('crypto');
 const { formatSlackMessage } = require('./utils/formatters');
 const { sendWebhookMessage } = require('./utils/slackClient');
-const { verifySignature } = require('./utils/verifier');
+const { mcpVerifyMiddleware, getExpressVerifyCallback } = require('./utils/verifier');
 
 // Initialize Express app
 const expressApp = express();
@@ -60,7 +59,9 @@ slackApp.client.on('reconnecting', () => {
 
 // Middleware
 expressApp.use(morgan('dev'));
-expressApp.use(bodyParser.json());
+expressApp.use(process.env.MCP_WEBHOOK_URL_PATH, bodyParser.json({
+  verify: getExpressVerifyCallback()
+}));
 
 // Health check endpoint
 expressApp.get('/health', (req, res) => {
@@ -71,27 +72,8 @@ expressApp.get('/health', (req, res) => {
   });
 });
 
-// Verify MCP webhook signature middleware
-const verifyMcpSignature = (req, res, next) => {
-  const signature = req.headers['mcp-signature'];
-  const body = JSON.stringify(req.body);
-  
-  if (!signature) {
-    console.error('MCP-Signature header missing');
-    return res.status(401).send('Invalid signature');
-  }
-
-  // Use the verifier utility
-  if (!verifySignature(body, signature, process.env.MCP_WEBHOOK_SECRET)) {
-    console.error('Invalid MCP signature');
-    return res.status(401).send('Invalid signature');
-  }
-
-  next();
-};
-
 // MCP webhook endpoint
-expressApp.post(process.env.MCP_WEBHOOK_URL_PATH, verifyMcpSignature, async (req, res) => {
+expressApp.post(process.env.MCP_WEBHOOK_URL_PATH, mcpVerifyMiddleware, async (req, res) => {
   try {
     const { eventType, eventDateTime, eventData } = req.body;
     
