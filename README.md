@@ -1,6 +1,6 @@
 # MCP-Alerts by freight.Cognition
 
-Version 0.1.1
+Version 0.1.2
 
 This application integrates MyCarrierPackets (MCP) webhooks with Slack using Socket Mode. It listens for MCP webhook events and forwards formatted messages to a specified Slack channel.
 
