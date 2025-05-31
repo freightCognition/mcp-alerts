@@ -1,9 +1,11 @@
-# MCP-Alerts by freight.Cognition
+# MyCarrierPortal-Alerts by freight.Cognition
+
+<img width="496" alt="Screenshot 2025-05-31 at 4 52 33 PM" src="https://github.com/user-attachments/assets/c701f446-8181-4e32-8ddd-7dcb895cddfd" /> <p>
+
 
 Version 0.1.2
 
-This application integrates MyCarrierPackets (MCP) webhooks with Slack using Socket Mode. It listens for MCP webhook events and forwards formatted messages to a specified Slack channel. <P>    
-<img width="496" alt="Screenshot 2025-05-31 at 4 52 33 PM" src="https://github.com/user-attachments/assets/c701f446-8181-4e32-8ddd-7dcb895cddfd" />
+This application integrates MyCarrierPackets (MCP) webhooks with Slack using Socket Mode. It listens for MCP webhook events and forwards formatted messages to a specified Slack channel. 
 
 ## Author
 
