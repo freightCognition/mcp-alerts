@@ -1,0 +1,111 @@
+name: Deploy to Production
+
+# Trigger the workflow on push to main branch
+on:
+  push:
+    branches: [ main ]
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    # This ensures it runs on your self-hosted runner
+    runs-on: self-hosted
+    
+    steps:
+    # Step 1: Checkout the latest code
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    # Step 2: Stop the existing container (if running)
+    - name: Stop existing container
+      run: |
+        if docker ps -q -f name=mcp-alerts; then
+          echo "Stopping existing container..."
+          docker stop mcp-alerts || true
+          docker rm mcp-alerts || true
+        else
+          echo "No existing container found"
+        fi
+      continue-on-error: true
+      
+    # Step 3: Remove old Docker image (optional, saves space)
+    - name: Remove old Docker image
+      run: |
+        if docker images -q mcp-alerts; then
+          echo "Removing old image..."
+          docker rmi mcp-alerts || true
+        fi
+      continue-on-error: true
+      
+    # Step 4: Build new Docker image
+    - name: Build Docker image
+      run: |
+        echo "Building new Docker image..."
+        docker build -t mcp-alerts .
+        
+    # Step 5: Create .env file with secrets and variables
+    - name: Create environment file
+      run: |
+        echo "Creating .env file..."
+        cat > .env << EOF
+        NODE_ENV=production
+        PORT=${{ vars.PORT }}
+        SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}
+        SLACK_APP_TOKEN=${{ secrets.SLACK_APP_TOKEN }}
+        SLACK_CHANNEL=${{ vars.SLACK_CHANNEL }}
+        SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
+        MCP_WEBHOOK_SIGNING_SECRET=${{ secrets.MCP_WEBHOOK_SIGNING_SECRET }}
+        MCP_WEBHOOK_URL_PATH=${{ vars.MCP_WEBHOOK_URL_PATH }}
+        PUBLIC_APP_URL=${{ vars.PUBLIC_APP_URL }}
+        EOF
+
+    # Step 6: Start new container
+    - name: Start new container
+      run: |
+        echo "Starting new container..."
+        docker run -d \
+          --name mcp-alerts \
+          --restart unless-stopped \
+          -p 3001:3001 \
+          --env-file .env \
+          mcp-alerts
+          
+    # Step 7: Wait a moment and check if container is running
+    - name: Verify deployment
+      run: |
+        echo "Waiting for container to start..."
+        sleep 10
+        
+        if docker ps -q -f name=mcp-alerts; then
+          echo "✅ Container is running successfully!"
+          docker ps -f name=mcp-alerts
+          
+          # Test the health endpoint
+          echo "Testing health endpoint..."
+          if curl -f http://localhost:3001/health; then
+            echo "✅ Health check passed!"
+          else
+            echo "❌ Health check failed!"
+            exit 1
+          fi
+        else
+          echo "❌ Container failed to start!"
+          echo "Container logs:"
+          docker logs mcp-alerts
+          exit 1
+        fi
+        
+    # Step 8: Clean up .env file for security
+    - name: Clean up
+      run: |
+        rm -f .env
+        echo "Cleaned up temporary files"
+      if: always()
+      
+    # Step 9: Send notification (optional)
+    - name: Deployment notification
+      run: |
+        echo "🚀 MCP Alerts deployed successfully!"
+        echo "Application is now running on $(hostname) at port 3001"

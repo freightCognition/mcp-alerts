@@ -1,0 +1,52 @@
+# Git specific
+.git
+.gitignore
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+# IMPORTANT: Your project contains both package-lock.json and pnpm-lock.yaml.
+# Choose ONE as your primary lock file for reproducible builds.
+# The CHOSEN lock file should NOT be listed here in .dockerignore,
+# and it should ideally be REMOVED from .gitignore and committed to your repository.
+# The OTHER lock file (not used for deployment) should be listed below.
+# Example: If package-lock.json is your primary, add pnpm-lock.yaml here.
+# If pnpm-lock.yaml is your primary, add package-lock.json here.
+#
+# For now, assuming package-lock.json is primary (due to package.json):
+pnpm-lock.yaml
+# package-lock.json # Add this line if pnpm-lock.yaml is your primary
+
+# Log files
+*.log
+
+# Environment variables
+# These should be supplied to the container at runtime, not built into the image.
+.env
+.env.*
+# If you have an example env file that SHOULD be in the image, negate it:
+# !.env.example
+
+# IDE & OS specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docker specific
+Dockerfile
+.dockerignore
+
+# Optional: Documentation (if not needed in the image)
+README.md
+
+# Build artifacts (if not generated inside Dockerfile and not needed in image's final stage)
+# dist/
+# build/
+
+# Test files (if not needed in production image)
+# test/
+# tests/
+# *.test.js
+# coverage/
