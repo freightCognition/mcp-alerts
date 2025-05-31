@@ -1,11 +1,19 @@
-.vscode
-node_modules
+# IDE files
+.vscode/
+
 # Dependency directories
 node_modules/
+
 # Environment variables
 .env
-# OS specific
+
+# OS specific files
 .DS_Store
+
+# Miscellaneous
 .windsurfrules
 
+# Lock files
+package-lock.json
+pnpm-lock.yaml
 
