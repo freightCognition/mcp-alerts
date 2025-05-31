@@ -14,9 +14,6 @@ yarn-error.log*
 # Example: If package-lock.json is your primary, add pnpm-lock.yaml here.
 # If pnpm-lock.yaml is your primary, add package-lock.json here.
 #
-# For now, assuming package-lock.json is primary (due to package.json):
-pnpm-lock.yaml
-# package-lock.json # Add this line if pnpm-lock.yaml is your primary
 
 # Log files
 *.log
