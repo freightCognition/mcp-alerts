@@ -115,7 +115,7 @@ function formatPacketCompletedMessage(eventType, formattedDate, eventData, carri
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}`,
+        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/packets/${eventData.packetDetail?.packetId || eventData.packetDetail?.id || ''}`,
         style: "primary"
       }
     ]
