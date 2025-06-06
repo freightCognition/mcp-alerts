@@ -75,32 +75,27 @@ jobs:
     # Step 7: Wait a moment and check if container is running
     - name: Verify deployment
       run: |
-          echo "Waiting for container to become ready..."
-          MAX_RETRIES=20
-          SLEEP_TIME=3
-          for i in $(seq 1 $MAX_RETRIES); do
-            if docker ps -q -f name=mcp-alerts; then
-              if curl -fs http://localhost:3001/health >/dev/null; then
-                echo "✅ Health check passed!"
-                SUCCESS=true
-                break
-              else
-                echo "Health check failed (attempt $i/$MAX_RETRIES), retrying..."
-              fi
-            else
-              echo "Container not running yet (attempt $i/$MAX_RETRIES)..."
-            fi
-            sleep $SLEEP_TIME
-          done
-
-          if [ "$SUCCESS" != "true" ]; then
-            echo "❌ Health check failed after $MAX_RETRIES attempts!"
-            echo "Container logs:"
-            docker logs mcp-alerts || true
-            exit 1
+        echo "Waiting for container to start..."
+        sleep 30
+        
+        if docker ps -q -f name=mcp-alerts; then
+          echo "✅ Container is running successfully!"
+          docker ps -f name=mcp-alerts
+          
+          # Test the health endpoint
+          echo "Testing health endpoint..."
+          if curl -f http://localhost:3001/health; then
+            echo "✅ Health check passed!"
           else
-            docker ps -f name=mcp-alerts
+            echo "❌ Health check failed!"
+            exit 1
           fi
+        else
+          echo "❌ Container failed to start!"
+          echo "Container logs:"
+          docker logs mcp-alerts
+          exit 1
+        fi
         
     # Step 8: Clean up .env file for security
     - name: Clean up
