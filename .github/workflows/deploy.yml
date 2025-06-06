@@ -76,6 +76,7 @@ jobs:
     - name: Verify deployment
       run: |
           echo "Waiting for container to become ready..."
+          sleep 10 # <-- ADD THIS LINE
           MAX_RETRIES=20
           SLEEP_TIME=3
           for i in $(seq 1 $MAX_RETRIES); do
