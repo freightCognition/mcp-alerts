@@ -1,4 +1,4 @@
-# MyCarrierPortal-Alerts by freight.Cognition
+# MyCarrierPortal-Alerts by freightCognition
 
 <img width="496" alt="Screenshot 2025-05-31 at 4 52 33 PM" src="https://github.com/user-attachments/assets/c701f446-8181-4e32-8ddd-7dcb895cddfd" /> <p>
 
