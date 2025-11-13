@@ -25,25 +25,42 @@ const SIMULATE_ONLY = process.argv.includes('--simulate'); // Add --simulate to 
 // Adjust this based on your actual webhook payload structure
 const sampleWebhookPayload = {
   eventType: 'carrier.packet.completed',
-  eventDateTime: new Date().toISOString(),
+  eventDateTime: '2025-04-29T22:16:41.5102923Z',
   eventData: {
+    agreement: {
+      signatureDate: '2025-04-29T22:16:20.6352903',
+      signaturePerson: 'MCP Test Carrier',
+      signaturePersonTitle: 'President',
+      signaturePersonEmail: 'test9999997@test.com',
+      signaturePersonPhoneNumber: '9999999999',
+      agreementImageBlobName: 'company-agreement/6/b7453f55-3f3b-454d-8726-89f746082a06',
+      ipAddress: {
+        address: '127.0.0.1',
+        city: 'New York City',
+        region: 'New York',
+        country: 'United States of America'
+      },
+      geolocation: {
+        latitude: 34.0544,
+        longitude: -118.244,
+        error: null,
+        method: 'IPAddress'
+      }
+    },
     carrier: {
-      legalName: 'RC ZONE INC',
-      dbaName: null,
-      dotNumber: '2491899',
-      docketNumber: 'MC863051'
+      dotNumber: 9999997,
+      docketNumber: 'MC9999997',
+      legalName: 'MCP TEST CARRIER 9999997',
+      dbaName: null
     },
     customer: {
-      companyName: 'LINEHAUL TRUCKING LLC',
-      customerID: '2168'
+      customerID: 6,
+      companyName: 'MCP Test Customer'
     },
     packetDetail: {
       packetType: 'Standard',
-      completionDatetime: new Date().toISOString(),
-      // These are the fields we're trying to identify:
-      packetId: '12345',  // Adjust based on actual field name
-      id: '12345',        // Alternative field name
-      // Add other fields you see in real payloads
+      completionDatetime: '2025-04-29T22:16:41.5102923Z',
+      packetId: '12345'
     }
   }
 };
