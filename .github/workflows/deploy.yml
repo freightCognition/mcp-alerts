@@ -18,15 +18,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # Step 2: Stop the existing container (if running)
-    - name: Stop existing container
+    # Step 2: Stop the existing containers (if running)
+    - name: Stop existing containers
       run: |
         if docker ps -q -f name=mcp-alerts; then
-          echo "Stopping existing container..."
+          echo "Stopping existing mcp-alerts container..."
           docker stop mcp-alerts || true
           docker rm mcp-alerts || true
         else
-          echo "No existing container found"
+          echo "No existing mcp-alerts container found"
+        fi
+        
+        if docker ps -q -f name=cloudflared; then
+          echo "Stopping existing cloudflared container..."
+          docker stop cloudflared || true
+          docker rm cloudflared || true
+        else
+          echo "No existing cloudflared container found"
         fi
       continue-on-error: true
       
@@ -39,7 +47,18 @@ jobs:
         fi
       continue-on-error: true
       
-    # Step 4: Build new Docker image
+    # Step 4: Create Docker network for container communication
+    - name: Create Docker network
+      run: |
+        if ! docker network ls | grep -q mcp-network; then
+          echo "Creating Docker network..."
+          docker network create mcp-network
+        else
+          echo "Docker network already exists"
+        fi
+      continue-on-error: true
+        
+    # Step 5: Build new Docker image
     - name: Build Docker image
       run: |
         echo "Building new Docker image..."
@@ -61,46 +80,76 @@ jobs:
         PUBLIC_APP_URL=${{ vars.PUBLIC_APP_URL }}
         EOF
 
-    # Step 6: Start new container
-    - name: Start new container
+    # Step 6: Start mcp-alerts container
+    - name: Start mcp-alerts container
       run: |
-        echo "Starting new container..."
+        echo "Starting mcp-alerts container..."
         docker run -d \
           --name mcp-alerts \
           --restart unless-stopped \
+          --network mcp-network \
           -p 3001:3001 \
           --env-file .env \
           mcp-alerts
           
-    # Step 7: Wait a moment and check if container is running
+    # Step 7: Start cloudflared container
+    - name: Start cloudflared container
+      run: |
+        echo "Starting cloudflared container..."
+        docker run -d \
+          --name cloudflared \
+          --restart unless-stopped \
+          --network mcp-network \
+          cloudflare/cloudflared:latest \
+          tunnel --no-autoupdate run --token ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          
+    # Step 8: Wait a moment and check if containers are running
     - name: Verify deployment
       run: |
-          echo "Waiting for container to become ready..."
-          sleep 10 # <-- ADD THIS LINE
+          echo "Waiting for containers to become ready..."
+          sleep 10
           MAX_RETRIES=20
           SLEEP_TIME=3
+          
+          # Check mcp-alerts container
           for i in $(seq 1 $MAX_RETRIES); do
             if docker ps -q -f name=mcp-alerts; then
               if curl -fs http://localhost:3001/health >/dev/null; then
-                echo "✅ Health check passed!"
-                SUCCESS=true
+                echo "✅ MCP Alerts health check passed!"
+                MCP_SUCCESS=true
                 break
               else
-                echo "Health check failed (attempt $i/$MAX_RETRIES), retrying..."
+                echo "MCP Alerts health check failed (attempt $i/$MAX_RETRIES), retrying..."
               fi
             else
-              echo "Container not running yet (attempt $i/$MAX_RETRIES)..."
+              echo "MCP Alerts container not running yet (attempt $i/$MAX_RETRIES)..."
             fi
             sleep $SLEEP_TIME
           done
 
-          if [ "$SUCCESS" != "true" ]; then
-            echo "❌ Health check failed after $MAX_RETRIES attempts!"
+          if [ "$MCP_SUCCESS" != "true" ]; then
+            echo "❌ MCP Alerts health check failed after $MAX_RETRIES attempts!"
             echo "Container logs:"
             docker logs mcp-alerts || true
             exit 1
+          fi
+          
+          # Check cloudflared container
+          if docker ps -q -f name=cloudflared; then
+            echo "✅ Cloudflared container is running!"
+            CLOUDFLARED_SUCCESS=true
           else
+            echo "❌ Cloudflared container is not running!"
+            echo "Container logs:"
+            docker logs cloudflared || true
+            exit 1
+          fi
+          
+          # Display running containers
+          if [ "$MCP_SUCCESS" = "true" ] && [ "$CLOUDFLARED_SUCCESS" = "true" ]; then
+            echo "✅ All containers deployed successfully!"
             docker ps -f name=mcp-alerts
+            docker ps -f name=cloudflared
           fi
         
     # Step 8: Clean up .env file for security
@@ -110,8 +159,9 @@ jobs:
         echo "Cleaned up temporary files"
       if: always()
       
-    # Step 9: Send notification (optional)
+    # Step 10: Send notification (optional)
     - name: Deployment notification
       run: |
-        echo "🚀 MCP Alerts deployed successfully!"
+        echo "🚀 MCP Alerts and Cloudflare Tunnel deployed successfully!"
         echo "Application is now running on $(hostname) at port 3001"
+        echo "Cloudflare Tunnel is active and routing traffic to the application"

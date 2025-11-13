@@ -9,3 +9,19 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks:
+      - mcp-network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    networks:
+      - mcp-network
+    depends_on:
+      - mcp-alerts-app
+
+networks:
+  mcp-network:
+    driver: bridge
