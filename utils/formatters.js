@@ -115,7 +115,7 @@ function formatPacketCompletedMessage(eventType, formattedDate, eventData, carri
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/packets/${eventData.packetDetail?.packetId || eventData.packetDetail?.id || ''}`,
+        url: `https://mycarrierpackets.com/CarrierInformation/DOTNumber/${eventData.carrier.dotNumber}/DocketNumber/${eventData.carrier.docketNumber}`,
         style: "primary"
       }
     ]
@@ -426,7 +426,7 @@ function formatVinVerificationCompletedMessage(eventType, formattedDate, eventDa
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/vehicles`,
+        url: `https://mycarrierpackets.com/CarrierInformation/DOTNumber/${eventData.carrier.dotNumber}/DocketNumber/${eventData.carrier.docketNumber}`,
         style: "primary"
       }
     ]
@@ -519,7 +519,7 @@ function formatUserVerificationCompletedMessage(eventType, formattedDate, eventD
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/users`,
+        url: `https://mycarrierpackets.com/CarrierInformation/DOTNumber/${eventData.carrier.dotNumber}/DocketNumber/${eventData.carrier.docketNumber}`,
         style: "primary"
       }
     ]
@@ -580,7 +580,7 @@ function formatDefaultMessage(eventType, formattedDate, eventData, carrierSectio
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}`,
+        url: `https://mycarrierpackets.com/CarrierInformation/DOTNumber/${eventData.carrier.dotNumber}/DocketNumber/${eventData.carrier.docketNumber}`,
         style: "primary"
       }
     ]
