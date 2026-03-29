@@ -12,7 +12,8 @@ jobs:
     name: Deploy to Production Server
     # This ensures it runs on your self-hosted runner
     runs-on: self-hosted
-    
+    environment: production
+
     steps:
     # Step 1: Checkout the latest code
     - name: Checkout code
