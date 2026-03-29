@@ -3,6 +3,22 @@
  */
 
 /**
+ * Formats a phone number string into (999) 999-9999
+ * @param {string} phone - The phone number to format
+ * @returns {string|null} - The formatted phone number or null if invalid
+ */
+function formatPhoneNumber(phone) {
+  if (!phone) {
+    return null;
+  }
+  const phoneNumber = phone.replace(/[^\d]/g, '');
+  if (phoneNumber.length === 10) {
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
+  }
+  return phone; // Return original if not a 10-digit number
+}
+
+/**
  * Main formatter function that dispatches to specific formatters based on event type
  * @param {string} eventType - The MCP webhook event type
  * @param {string} eventDateTime - ISO 8601 timestamp of the event
@@ -121,18 +137,96 @@ function formatPacketCompletedMessage(eventType, formattedDate, eventData, carri
     ]
   };
 
-  return {
-    blocks: [
-      packetCompletedHeader,
+  const blocks = [
+    packetCompletedHeader,
+    { type: "divider" },
+    carrierSection,
+    packetDetails,
+  ];
+
+  // --- NEW: Agreement and Location Details ---
+  // Handle backward compatibility if 'agreement' object is missing
+  if (eventData.agreement) {
+    // Agreement Signer Section
+    const signerSection = {
+      type: "section",
+      fields: [
+        {
+          type: "mrkdwn",
+          text: `*Signed By:* ${eventData.agreement.signaturePerson || 'N/A'}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Title:* ${eventData.agreement.signaturePersonTitle || 'N/A'}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Email:* ${eventData.agreement.signaturePersonEmail || 'N/A'}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*Phone:* ${formatPhoneNumber(eventData.agreement.signaturePersonPhoneNumber) || 'N/A'}`
+        }
+      ]
+    };
+    blocks.push(signerSection);
+
+    // Signature Location Section
+    const locationParts = [
+      eventData.agreement.ipAddress?.city,
+      eventData.agreement.ipAddress?.region,
+      eventData.agreement.ipAddress?.country
+    ].filter(Boolean).join(', ');
+
+    const locationSection = {
+      type: "section",
+      fields: [
+        {
+          type: "mrkdwn",
+          text: `*Location:* ${locationParts || 'N/A'}`
+        },
+        {
+          type: "mrkdwn",
+          text: `*IP Address:* ${eventData.agreement.ipAddress?.address || 'N/A'}`
+        }
+      ]
+    };
+    blocks.push(locationSection);
+  }
+
+  // Add standard sections
+  blocks.push(customerSection, contextSection);
+
+  // Geolocation Context (if available)
+  if (eventData.agreement?.geolocation) {
+    const geo = eventData.agreement.geolocation;
+    const elements = [
       {
-        type: "divider"
-      },
-      carrierSection,
-      packetDetails,
-      customerSection,
-      contextSection,
-      actions
-    ],
+        type: "mrkdwn",
+        text: `📍 Coordinates: ${geo.latitude}, ${geo.longitude} (via ${geo.method || 'N/A'})`
+      }
+    ];
+
+    // Add optional Google Maps link
+    if (geo.latitude && geo.longitude) {
+      elements.push({
+        type: "mrkdwn",
+        text: `<https://www.google.com/maps?q=${geo.latitude},${geo.longitude}|View on Google Maps>`
+      });
+    }
+
+    const geolocationContext = {
+      type: "context",
+      elements: elements
+    };
+    blocks.push(geolocationContext);
+  }
+
+  // Add final actions
+  blocks.push(actions);
+
+  return {
+    blocks: blocks,
     attachments: [
       {
         color: "#36C5F0",
