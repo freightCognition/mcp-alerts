@@ -3,9 +3,10 @@
  */
 
 /**
- * Formats a phone number string into (999) 999-9999
- * @param {string} phone - The phone number to format
- * @returns {string|null} - The formatted phone number or null if invalid
+ * Formats a 10-digit phone number string into (999) 999-9999.
+ * @param {string} phone - The phone number to format. Non-string input will throw on .replace().
+ * @returns {string|null} The number formatted as (999) 999-9999; the original
+ *   unmodified string if it is not exactly 10 digits; or null if input is empty/falsy.
  */
 function formatPhoneNumber(phone) {
   if (!phone) {
@@ -144,8 +145,8 @@ function formatPacketCompletedMessage(eventType, formattedDate, eventData, carri
     packetDetails,
   ];
 
-  // --- NEW: Agreement and Location Details ---
-  // Handle backward compatibility if 'agreement' object is missing
+  // Agreement signer and signature-location details.
+  // 'agreement' is absent on packet.completed events emitted before MCP added e-signature capture.
   if (eventData.agreement) {
     // Agreement Signer Section
     const signerSection = {
@@ -200,26 +201,32 @@ function formatPacketCompletedMessage(eventType, formattedDate, eventData, carri
   // Geolocation Context (if available)
   if (eventData.agreement?.geolocation) {
     const geo = eventData.agreement.geolocation;
-    const elements = [
-      {
+    // Use finite checks, not truthiness: latitude/longitude of 0 (equator / prime
+    // meridian) are valid coordinates that a truthiness guard would wrongly drop.
+    const hasCoordinates = Number.isFinite(geo.latitude) && Number.isFinite(geo.longitude);
+    const elements = [];
+
+    if (hasCoordinates) {
+      elements.push({
         type: "mrkdwn",
         text: `📍 Coordinates: ${geo.latitude}, ${geo.longitude} (via ${geo.method || 'N/A'})`
-      }
-    ];
-
-    // Add optional Google Maps link
-    if (geo.latitude && geo.longitude) {
+      });
       elements.push({
         type: "mrkdwn",
         text: `<https://www.google.com/maps?q=${geo.latitude},${geo.longitude}|View on Google Maps>`
       });
+    } else {
+      // No usable coordinates — surface the reported reason instead of rendering "undefined, undefined".
+      elements.push({
+        type: "mrkdwn",
+        text: `📍 Coordinates unavailable${geo.error ? `: ${geo.error}` : ''}`
+      });
     }
 
-    const geolocationContext = {
+    blocks.push({
       type: "context",
       elements: elements
-    };
-    blocks.push(geolocationContext);
+    });
   }
 
   // Add final actions
@@ -702,5 +709,6 @@ function formatDefaultMessage(eventType, formattedDate, eventData, carrierSectio
 }
 
 module.exports = {
-  formatSlackMessage
+  formatSlackMessage,
+  formatPhoneNumber
 };

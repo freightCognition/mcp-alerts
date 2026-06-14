@@ -92,8 +92,7 @@ async function testWebhook() {
       // Check if packet ID is missing
       if (viewButton.url.endsWith('/packets/')) {
         console.log('⚠️  WARNING: Packet ID appears to be missing from the URL!');
-        console.log('   This suggests packetDetail.packetId and packetDetail.id are not present.');
-        console.log('   You may need to adjust the field names in formatters.js\n');
+        console.log('   The payload is missing packetDetail.packetId.\n');
       }
     }
     
@@ -143,11 +142,8 @@ async function testWebhook() {
   // Step 3: Provide debugging suggestions
   console.log('\n3️⃣  Debugging Tips:');
   console.log('=====================================');
-  console.log('1. Check actual webhook payloads from MCP to see the real structure');
-  console.log('2. Look for fields like: packetId, packet_id, id, packetNumber, etc.');
-  console.log('3. Verify the correct URL pattern by checking a working packet URL in MyCarrierPackets.com');
-  console.log('4. Update the packetDetail fields in this test script to match real data');
-  console.log('5. Add console.log(eventData) in formatPacketCompletedMessage to see the full payload\n');
+  console.log('1. Verify the URL pattern against a working packet URL in MyCarrierPackets.com');
+  console.log('2. Add console.log(eventData) in formatPacketCompletedMessage to inspect the full payload\n');
 }
 
 // Alternative: Test with custom payload from command line
