@@ -24,7 +24,8 @@ node test/test-packet-completed.js --simulate  # Test formatter without sending
 2. **Express server** (HTTP) — receives incoming MCP webhooks on the configurable `MCP_WEBHOOK_URL_PATH`
 
 **Request flow:**
-```
+
+```text
 MCP webhook POST → Express → body-parser (captures rawBody) → mcpVerifyMiddleware (HMAC-SHA256)
   → formatSlackMessage (event-type dispatch) → Slack Socket Mode (primary) / Webhook (fallback)
 ```

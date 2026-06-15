@@ -3,20 +3,21 @@
  */
 
 /**
- * Formats a 10-digit phone number string into (999) 999-9999.
- * @param {string} phone - The phone number to format. Non-string input will throw on .replace().
+ * Formats a 10-digit phone number into (999) 999-9999.
+ * @param {string|number} phone - The phone number to format.
  * @returns {string|null} The number formatted as (999) 999-9999; the original
- *   unmodified string if it is not exactly 10 digits; or null if input is empty/falsy.
+ *   string value if it is not exactly 10 digits; or null if input is empty/falsy.
  */
 function formatPhoneNumber(phone) {
   if (!phone) {
     return null;
   }
-  const phoneNumber = phone.replace(/[^\d]/g, '');
+  const originalPhone = String(phone);
+  const phoneNumber = originalPhone.replace(/[^\d]/g, '');
   if (phoneNumber.length === 10) {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
   }
-  return phone; // Return original if not a 10-digit number
+  return originalPhone; // Return original string value if not a 10-digit number
 }
 
 /**

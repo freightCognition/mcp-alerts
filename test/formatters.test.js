@@ -90,6 +90,10 @@ test('formatPhoneNumber returns null for empty/falsy input', () => {
   assert.equal(formatPhoneNumber(undefined), null);
 });
 
+test('formatPhoneNumber handles numeric input', () => {
+  assert.equal(formatPhoneNumber(9999999999), '(999) 999-9999');
+});
+
 // --- formatPacketCompletedMessage: with agreement ----------------------------
 
 test('packet.completed renders agreement signer, location, and maps link', () => {
