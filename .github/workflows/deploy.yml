@@ -4,8 +4,16 @@ name: Deploy to Production
 on:
   push:
     branches: [ main ]
-  # Allow manual triggering from GitHub UI
+  # Allow manual triggering from GitHub UI (pick any branch to test-deploy it)
   workflow_dispatch:
+
+# Serialize all deploys: every run (any branch) shares one queue, so a branch
+# test-deploy and a main deploy can never fight over the same container names,
+# port, or tunnel on the single self-hosted runner. An in-flight deploy is never
+# cancelled mid-way (which could leave containers half-torn-down); new runs wait.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -163,5 +171,6 @@ jobs:
     - name: Deployment notification
       run: |
         echo "🚀 MCP Alerts and Cloudflare Tunnel deployed successfully!"
+        echo "Deployed ref: ${{ github.ref_name }} (sha ${{ github.sha }})"
         echo "Application is now running on $(hostname) at port 3001"
         echo "Cloudflare Tunnel is active and routing traffic to the application"
