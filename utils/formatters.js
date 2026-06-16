@@ -9,7 +9,7 @@
  *   string value if it is not exactly 10 digits; or null if input is empty/falsy.
  */
 function formatPhoneNumber(phone) {
-  if (phone === null || phone === undefined || phone === '') {
+  if (phone === null || phone === undefined || phone === '' || phone === 0) {
     return null;
   }
   const originalPhone = String(phone);
