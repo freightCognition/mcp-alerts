@@ -21,6 +21,23 @@ function formatPhoneNumber(phone) {
 }
 
 /**
+ * Build the MCP CarrierInformation URL for a carrier.
+ * URL-encodes the identifiers and omits the DocketNumber segment when the
+ * carrier has no docket (MC) number, so the link never contains a literal
+ * "null" or "undefined".
+ * @param {object} carrier - Carrier object with dotNumber and optional docketNumber
+ * @returns {string} - MCP carrier information URL
+ */
+function buildCarrierUrl(carrier) {
+  const dotNumber = encodeURIComponent(carrier?.dotNumber ?? '');
+  let url = `https://mycarrierpackets.com/CarrierInformation/DOTNumber/${dotNumber}`;
+  if (carrier?.docketNumber) {
+    url += `/DocketNumber/${encodeURIComponent(carrier.docketNumber)}`;
+  }
+  return url;
+}
+
+/**
  * Main formatter function that dispatches to specific formatters based on event type
  * @param {string} eventType - The MCP webhook event type
  * @param {string} eventDateTime - ISO 8601 timestamp of the event
@@ -133,7 +150,7 @@ function formatPacketCompletedMessage(eventType, formattedDate, eventData, carri
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/packets/${eventData.packetDetail?.packetId || eventData.packetDetail?.id || ''}`,
+        url: buildCarrierUrl(eventData.carrier),
         style: "primary"
       }
     ]
@@ -528,7 +545,7 @@ function formatVinVerificationCompletedMessage(eventType, formattedDate, eventDa
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/vehicles`,
+        url: buildCarrierUrl(eventData.carrier),
         style: "primary"
       }
     ]
@@ -621,7 +638,7 @@ function formatUserVerificationCompletedMessage(eventType, formattedDate, eventD
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}/users`,
+        url: buildCarrierUrl(eventData.carrier),
         style: "primary"
       }
     ]
@@ -682,7 +699,7 @@ function formatDefaultMessage(eventType, formattedDate, eventData, carrierSectio
           text: "View in MCP",
           emoji: true
         },
-        url: `https://mycarrierpackets.com/carriers/${eventData.carrier.dotNumber}`,
+        url: buildCarrierUrl(eventData.carrier),
         style: "primary"
       }
     ]

@@ -86,13 +86,13 @@ async function testWebhook() {
     if (actionsBlock && actionsBlock.elements[0]) {
       const viewButton = actionsBlock.elements[0];
       console.log('📎 View in MCP Button URL:', viewButton.url);
-      console.log('   Expected format: https://mycarrierpackets.com/carriers/[DOT]/packets/[PACKET_ID]');
+      console.log('   Expected format: https://mycarrierpackets.com/CarrierInformation/DOTNumber/[DOT]/DocketNumber/[MC]');
       console.log(`   Actual result: ${viewButton.url}\n`);
       
-      // Check if packet ID is missing
-      if (viewButton.url.endsWith('/packets/')) {
-        console.log('⚠️  WARNING: Packet ID appears to be missing from the URL!');
-        console.log('   The payload is missing packetDetail.packetId.\n');
+      // Check if the URL contains the correct base path
+      if (!viewButton.url.includes('/CarrierInformation/DOTNumber/')) {
+        console.log('⚠️  WARNING: The URL does not seem to match the new format!');
+        console.log('   Please check the formatters.js file.\n');
       }
     }
     

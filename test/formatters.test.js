@@ -106,7 +106,7 @@ test('packet.completed renders agreement signer, location, and maps link', () =>
   assert.ok(hasText(msg, '*Location:* New York City, New York, United States of America'), 'location assembled');
   assert.ok(hasText(msg, '*IP Address:* 127.0.0.1'), 'ip address present');
   assert.ok(hasText(msg, 'View on Google Maps'), 'maps link present');
-  assert.ok(actionsButtonUrl(msg).endsWith('/carriers/9999997/packets/12345'), 'action URL correct');
+  assert.ok(actionsButtonUrl(msg).endsWith('/CarrierInformation/DOTNumber/9999997/DocketNumber/MC9999997'), 'action URL correct');
 });
 
 test('packet.completed assembles a partial location without stray commas', () => {
@@ -126,7 +126,7 @@ test('packet.completed omits agreement sections when agreement is missing', () =
   assert.ok(!hasText(msg, 'Signed By'), 'no signer section');
   assert.ok(!hasText(msg, 'Coordinates'), 'no geolocation section');
   assert.ok(hasText(msg, '*Carrier:* MCP TEST CARRIER 9999997'), 'carrier section still present');
-  assert.ok(actionsButtonUrl(msg)?.includes('/carriers/9999997'), 'action button still present');
+  assert.ok(actionsButtonUrl(msg)?.includes('/CarrierInformation/DOTNumber/9999997'), 'action button still present');
 });
 
 // --- geolocation edge cases (regression for the falsy-coordinate bug) --------
