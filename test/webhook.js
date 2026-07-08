@@ -11,9 +11,25 @@ const webhookSamples = {
     eventType: 'carrier.packet.completed',
     eventDateTime: new Date().toISOString(),
     eventData: {
-      packetDetail: {
-        packetType: 'Standard',
-        completionDatetime: new Date().toISOString()
+      agreement: {
+        signatureDate: new Date().toISOString(),
+        signaturePerson: 'MCP Test Carrier',
+        signaturePersonTitle: 'President',
+        signaturePersonEmail: 'test9999997@test.com',
+        signaturePersonPhoneNumber: '9999999999',
+        agreementImageBlobName: 'company-agreement/6/b7453f55-3f3b-454d-8726-89f746082a06',
+        ipAddress: {
+          address: '127.0.0.1',
+          city: 'New York City',
+          region: 'New York',
+          country: 'United States of America'
+        },
+        geolocation: {
+          latitude: 34.0544,
+          longitude: -118.244,
+          error: null,
+          method: 'IPAddress'
+        }
       },
       carrier: {
         dotNumber: 9999997,
@@ -31,12 +47,32 @@ const webhookSamples = {
     eventType: 'carrier.incident_report.created',
     eventDateTime: new Date().toISOString(),
     eventData: {
-      incidentReportDetail: {
-        incidentReportID: '123456',
-        incidentType: 'Safety Concern',
-        incidentDatetime: new Date().toISOString(),
-        status: 'New',
-        reportedBy: 'Test Reporter'
+      incidentReport: {
+        incidentDate: '04/22/2025',
+        originCity: 'Salt Lake City',
+        originStateProvinceName: 'UT',
+        originCountryName: 'United States',
+        destinationCity: 'Lincoln',
+        destinationStateProvinceName: 'NE',
+        destinationCountryName: 'United States',
+        reportedByCompany: 'MCP Test Company',
+        carrierEmails: 'test9999997@test.com',
+        createdBy: 'MCP Test User',
+        createdDate: new Date().toISOString(),
+        modifiedBy: 'MCP Test User',
+        modifiedDate: new Date().toISOString(),
+        incidentTypes: [
+          'Theft or Unjustified Loss of Freight',
+          'Wrong Equipment'
+        ],
+        comments: [
+          {
+            commenterType: 'ReportingParty',
+            commentBy: 'MCP Test User',
+            commentDate: new Date().toISOString(),
+            comment: 'Damaged cargo'
+          }
+        ]
       },
       carrier: {
         dotNumber: 9999997,
@@ -54,12 +90,32 @@ const webhookSamples = {
     eventType: 'carrier.incident_report.updated',
     eventDateTime: new Date().toISOString(),
     eventData: {
-      incidentReportDetail: {
-        incidentReportID: '123456',
-        incidentType: 'Safety Concern',
-        incidentDatetime: new Date().toISOString(),
-        status: 'In Progress',
-        reportedBy: 'Test Reporter'
+      incidentReport: {
+        incidentDate: '04/22/2025',
+        originCity: 'Salt Lake City',
+        originStateProvinceName: 'UT',
+        originCountryName: 'United States',
+        destinationCity: 'Lincoln',
+        destinationStateProvinceName: 'NE',
+        destinationCountryName: 'United States',
+        reportedByCompany: 'MCP Test Company',
+        carrierEmails: 'test9999997@test.com',
+        createdBy: 'MCP Test User',
+        createdDate: '2025-04-23T06:27:14.8587937',
+        modifiedBy: 'MCP Test User',
+        modifiedDate: new Date().toISOString(),
+        incidentTypes: [
+          'Theft or Unjustified Loss of Freight',
+          'Wrong Equipment'
+        ],
+        comments: [
+          {
+            commenterType: 'ReportingParty',
+            commentBy: 'MCP Test User',
+            commentDate: '2025-04-23T06:27:15.0159957',
+            comment: 'Damaged cargo'
+          }
+        ]
       },
       carrier: {
         dotNumber: 9999997,
@@ -77,12 +133,24 @@ const webhookSamples = {
     eventType: 'carrier.incident_report.retracted',
     eventDateTime: new Date().toISOString(),
     eventData: {
-      incidentReportDetail: {
-        incidentReportID: '123456',
-        incidentType: 'Safety Concern',
-        incidentDatetime: new Date().toISOString(),
-        retractionReason: 'False Report',
-        retractedBy: 'Administrator'
+      incidentReport: {
+        incidentDate: '04/22/2025',
+        originCity: 'Salt Lake City',
+        originStateProvinceName: 'UT',
+        originCountryName: 'United States',
+        destinationCity: 'Lincoln',
+        destinationStateProvinceName: 'NE',
+        destinationCountryName: 'United States',
+        reportedByCompany: 'MCP Test Company',
+        carrierEmails: 'test9999997@test.com',
+        createdBy: 'MCP Test User',
+        createdDate: '2025-04-23T06:27:14.8587937',
+        modifiedBy: 'MCP Test User',
+        modifiedDate: new Date().toISOString(),
+        incidentTypes: [
+          'Theft or Unjustified Loss of Freight'
+        ],
+        comments: []
       },
       carrier: {
         dotNumber: 9999997,
@@ -101,15 +169,27 @@ const webhookSamples = {
     eventDateTime: new Date().toISOString(),
     eventData: {
       vinVerificationDetail: {
-        vin: '3AKJGLD55ESFW7639',
-        vinVerificationStatus: 'VINBelongsToAnotherCarrier',
-        otherDOTNumber: 3083762,
+        imageUploadedByFirstName: 'FirstName',
+        imageUploadedByLastName: 'LastName',
+        imageUploadedDateTime: new Date().toISOString(),
+        imageUploadedIPAddress: {
+          address: '127.0.0.1',
+          city: 'Arlington',
+          region: 'Virginia',
+          country: 'United States of America'
+        },
         imageUploadedGeolocation: {
           latitude: 34.0544,
           longitude: -118.244,
           error: null,
           method: 'IPAddress'
-        }
+        },
+        vin: '3AKJGLD55ESFW7639',
+        vinVerificationStatus: 'VINBelongsToAnotherCarrier',
+        otherDOTNumber: 3083762,
+        vinVerificationRequestID: 102,
+        requesteePhoneNumber: '9999999999',
+        vinImageUrl: 'https://mycarrierpackets.com/download/vin-image-102'
       },
       carrier: {
         dotNumber: 9999997,

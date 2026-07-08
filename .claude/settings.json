@@ -1,12 +1,14 @@
 {
   "env": {
     "CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION": "1",
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
-    "respectGitignore": "false"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
+  "respectGitignore": false,
   "enabledPlugins": {
     "claude-code-setup@claude-plugins-official": true,
-    "pr-review-toolkit@claude-plugins-official": true
+    "pr-review-toolkit@claude-plugins-official": true,
+    "mycarrierpackets-api@linehaulai-claude-marketplace": true,
+    "superpowers@claude-plugins-official": true
   },
-  "showClearContextOnPlanAccept": "true"
+  "showClearContextOnPlanAccept": true
 }

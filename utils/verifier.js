@@ -140,8 +140,6 @@ function mcpVerifyMiddleware(req, res, next) {
     return res.status(500).send('Raw request body not available for verification.');
   }
 
-  // Debug: Log the raw body for troubleshooting signature mismatches
-  console.log('[DEBUG] req.rawBody:', req.rawBody);
   const isValid = verifySignature(req.rawBody, signatureHeader, secret);
 
   if (isValid) {

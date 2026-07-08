@@ -1,6 +1,6 @@
 /**
  * Test script for carrier.packet.completed webhook
- * This script helps verify the webhook payload structure and test the URL formatting
+ * Sends (or simulates) a packet.completed webhook and prints the formatted Slack message.
  */
 
 require('dotenv').config();
@@ -21,8 +21,7 @@ const { formatSlackMessage } = require('../utils/formatters');
 const WEBHOOK_URL = `http://localhost:${process.env.PORT || 3001}${process.env.MCP_WEBHOOK_URL_PATH || '/webhooks/mcp'}`;
 const SIMULATE_ONLY = process.argv.includes('--simulate'); // Add --simulate to only test formatting without sending
 
-// Sample webhook payload for carrier.packet.completed
-// Adjust this based on your actual webhook payload structure
+// Sample webhook payload for carrier.packet.completed (matches the documented MCP schema).
 const sampleWebhookPayload = {
   eventType: 'carrier.packet.completed',
   eventDateTime: '2025-04-29T22:16:41.5102923Z',
@@ -56,11 +55,6 @@ const sampleWebhookPayload = {
     customer: {
       customerID: 6,
       companyName: 'MCP Test Customer'
-    },
-    packetDetail: {
-      packetType: 'Standard',
-      completionDatetime: '2025-04-29T22:16:41.5102923Z',
-      packetId: '12345'
     }
   }
 };

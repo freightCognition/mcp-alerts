@@ -2,6 +2,39 @@
  * Format MCP webhook events into rich Slack messages
  */
 
+/** Shorthand for a Slack mrkdwn text object. */
+const md = (text) => ({ type: "mrkdwn", text });
+
+/** Join first and last name, dropping any missing part (no stray spaces). */
+const fullName = (first, last) => [first, last].filter(Boolean).join(' ');
+
+/**
+ * True when a geolocation carries finite numeric coordinates.
+ * Uses finite checks, not truthiness: latitude/longitude of 0 (equator / prime
+ * meridian) are valid coordinates that a truthiness guard would wrongly drop.
+ * @param {object} geo - A geolocation object with latitude/longitude.
+ */
+const hasCoordinates = (geo) =>
+  !!geo && Number.isFinite(geo.latitude) && Number.isFinite(geo.longitude);
+
+/** Google Maps query URL for a geolocation with finite coordinates. */
+const mapsUrl = (geo) => `https://www.google.com/maps?q=${geo.latitude},${geo.longitude}`;
+
+/**
+ * Format a date/time value for display, guarding against unparseable input.
+ * Slack would otherwise surface the literal string "Invalid Date".
+ * @param {string|number|Date} value - A value accepted by the Date constructor.
+ * @param {string} [fallback='N/A'] - Returned when value is missing or invalid.
+ * @returns {string} The locale-formatted date, or the fallback.
+ */
+function formatDate(value, fallback = 'N/A') {
+  if (!value) {
+    return fallback;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : date.toLocaleString();
+}
+
 /**
  * Formats a 10-digit phone number into (999) 999-9999.
  * @param {string|number} phone - The phone number to format.
@@ -9,7 +42,7 @@
  *   string value if it is not exactly 10 digits; or null if input is empty/falsy.
  */
 function formatPhoneNumber(phone) {
-  if (phone === null || phone === undefined || phone === '' || phone === 0) {
+  if (!phone) {
     return null;
   }
   const originalPhone = String(phone);
@@ -29,13 +62,45 @@ function formatPhoneNumber(phone) {
  * @returns {string} - MCP carrier information URL
  */
 function buildCarrierUrl(carrier) {
-  const dotNumber = encodeURIComponent(carrier?.dotNumber ?? '');
-  let url = `https://mycarrierpackets.com/CarrierInformation/DOTNumber/${dotNumber}`;
+  let url = 'https://mycarrierpackets.com/CarrierInformation';
+  if (carrier?.dotNumber) {
+    url += `/DOTNumber/${encodeURIComponent(carrier.dotNumber)}`;
+  }
   if (carrier?.docketNumber) {
     url += `/DocketNumber/${encodeURIComponent(carrier.docketNumber)}`;
   }
   return url;
 }
+
+/**
+ * Build the single-button "View in MCP" actions block linking to the carrier.
+ * @param {object} carrier - eventData.carrier
+ * @param {string} [label="View in MCP"] - Button label.
+ * @returns {object} - A Slack "actions" block with one primary button.
+ */
+function buildViewInMcpAction(carrier, label = "View in MCP") {
+  return {
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: { type: "plain_text", text: label, emoji: true },
+        url: buildCarrierUrl(carrier),
+        style: "primary"
+      }
+    ]
+  };
+}
+
+/**
+ * Heading text and accent color for each incident_report sub-event. They share
+ * an identical payload shape and differ only in these two literals.
+ */
+const INCIDENT_CONFIG = {
+  'carrier.incident_report.created': { header: '⚠️ New Incident Report Created', color: '#E01E5A' },
+  'carrier.incident_report.updated': { header: '🔄 Incident Report Updated', color: '#ECB22E' },
+  'carrier.incident_report.retracted': { header: '❌ Incident Report Retracted', color: '#7B7B7B' }
+};
 
 /**
  * Main formatter function that dispatches to specific formatters based on event type
@@ -45,25 +110,20 @@ function buildCarrierUrl(carrier) {
  * @returns {object} - Formatted Slack message with blocks, attachments and fallback text
  */
 function formatSlackMessage(eventType, eventDateTime, eventData) {
-  const date = new Date(eventDateTime);
-  const formattedDate = date.toLocaleString();
-  
+  // Guard the container itself: a webhook body missing `eventData` arrives here
+  // as null/undefined. Without this, every `eventData.carrier?.` below throws,
+  // and since app.js has already 200'd the request, the event is silently lost.
+  eventData = eventData || {};
+
+  const formattedDate = formatDate(eventDateTime);
+
   // Basic carrier info section that's common to all events
   const carrierSection = {
     type: "section",
     fields: [
-      {
-        type: "mrkdwn",
-        text: `*Carrier:* ${eventData.carrier.legalName} ${eventData.carrier.dbaName ? `(${eventData.carrier.dbaName})` : ''}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*DOT Number:* ${eventData.carrier.dotNumber}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*MC Number:* ${eventData.carrier.docketNumber || 'N/A'}`
-      }
+      md(`*Carrier:* ${eventData.carrier?.legalName || 'N/A'} ${eventData.carrier?.dbaName ? `(${eventData.carrier.dbaName})` : ''}`),
+      md(`*DOT Number:* ${eventData.carrier?.dotNumber || 'N/A'}`),
+      md(`*MC Number:* ${eventData.carrier?.docketNumber || 'N/A'}`)
     ]
   };
 
@@ -71,658 +131,330 @@ function formatSlackMessage(eventType, eventDateTime, eventData) {
   const customerSection = {
     type: "section",
     fields: [
-      {
-        type: "mrkdwn",
-        text: `*Customer:* ${eventData.customer.companyName}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Customer ID:* ${eventData.customer.customerID}`
-      }
+      md(`*Customer:* ${eventData.customer?.companyName || 'N/A'}`),
+      md(`*Customer ID:* ${eventData.customer?.customerID ?? 'N/A'}`)
     ]
   };
 
   // Timestamp and event context
   const contextSection = {
     type: "context",
-    elements: [
-      {
-        type: "mrkdwn",
-        text: `Event occurred at *${formattedDate}*`
-      }
-    ]
+    elements: [md(`Event occurred at *${formattedDate}*`)]
   };
 
   // Call the appropriate formatter based on eventType
   switch (eventType) {
     case 'carrier.packet.completed':
-      return formatPacketCompletedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
+      return formatPacketCompletedMessage(eventData, carrierSection, customerSection, contextSection);
     case 'carrier.incident_report.created':
-      return formatIncidentReportCreatedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
     case 'carrier.incident_report.updated':
-      return formatIncidentReportUpdatedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
-    case 'carrier.incident_report.retracted':
-      return formatIncidentReportRetractedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
+    case 'carrier.incident_report.retracted': {
+      const { header, color } = INCIDENT_CONFIG[eventType];
+      return formatIncidentReportMessage(header, color, eventData, carrierSection, customerSection, contextSection);
+    }
     case 'carrier.vin_verification.completed':
-      return formatVinVerificationCompletedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
+      return formatVinVerificationCompletedMessage(eventData, carrierSection, customerSection, contextSection);
     case 'carrier.user_verification.completed':
-      return formatUserVerificationCompletedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
+      return formatUserVerificationCompletedMessage(formattedDate, eventData, carrierSection, customerSection, contextSection);
     default:
-      return formatDefaultMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection);
+      return formatDefaultMessage(eventType, eventData, carrierSection, customerSection, contextSection);
   }
 }
 
 /**
  * Format message for carrier.packet.completed event
  */
-function formatPacketCompletedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
+function formatPacketCompletedMessage(eventData, carrierSection, customerSection, contextSection) {
   const packetCompletedHeader = {
     type: "header",
-    text: {
-      type: "plain_text",
-      text: "🎉 Carrier Packet Completed",
-      emoji: true
-    }
-  };
-
-  const packetDetails = {
-    type: "section",
-    fields: [
-      {
-        type: "mrkdwn",
-        text: `*Packet Type:* ${eventData.packetDetail?.packetType || 'Standard'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Completion Date:* ${new Date(eventData.packetDetail?.completionDatetime || formattedDate).toLocaleString()}`
-      }
-    ]
-  };
-
-  // Action buttons
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View in MCP",
-          emoji: true
-        },
-        url: buildCarrierUrl(eventData.carrier),
-        style: "primary"
-      }
-    ]
+    text: { type: "plain_text", text: "🎉 Carrier Packet Completed", emoji: true }
   };
 
   const blocks = [
     packetCompletedHeader,
     { type: "divider" },
-    carrierSection,
-    packetDetails,
+    carrierSection
   ];
 
   // Agreement signer and signature-location details.
-  // 'agreement' is absent on packet.completed events emitted before MCP added e-signature capture.
+  // Guard against payloads that omit the optional agreement block.
   if (eventData.agreement) {
-    // Agreement Signer Section
     const signerSection = {
       type: "section",
       fields: [
-        {
-          type: "mrkdwn",
-          text: `*Signed By:* ${eventData.agreement.signaturePerson || 'N/A'}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Title:* ${eventData.agreement.signaturePersonTitle || 'N/A'}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Email:* ${eventData.agreement.signaturePersonEmail || 'N/A'}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Phone:* ${formatPhoneNumber(eventData.agreement.signaturePersonPhoneNumber) || 'N/A'}`
-        }
+        md(`*Signed By:* ${eventData.agreement.signaturePerson || 'N/A'}`),
+        md(`*Title:* ${eventData.agreement.signaturePersonTitle || 'N/A'}`),
+        md(`*Email:* ${eventData.agreement.signaturePersonEmail || 'N/A'}`),
+        md(`*Phone:* ${formatPhoneNumber(eventData.agreement.signaturePersonPhoneNumber) || 'N/A'}`)
       ]
     };
+    if (eventData.agreement.signatureDate) {
+      signerSection.fields.push(md(`*Signed On:* ${formatDate(eventData.agreement.signatureDate)}`));
+    }
     blocks.push(signerSection);
 
-    // Signature Location Section
     const locationParts = [
       eventData.agreement.ipAddress?.city,
       eventData.agreement.ipAddress?.region,
       eventData.agreement.ipAddress?.country
     ].filter(Boolean).join(', ');
 
-    const locationSection = {
+    blocks.push({
       type: "section",
       fields: [
-        {
-          type: "mrkdwn",
-          text: `*Location:* ${locationParts || 'N/A'}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*IP Address:* ${eventData.agreement.ipAddress?.address || 'N/A'}`
-        }
+        md(`*Location:* ${locationParts || 'N/A'}`),
+        md(`*IP Address:* ${eventData.agreement.ipAddress?.address || 'N/A'}`)
       ]
-    };
-    blocks.push(locationSection);
-  }
-
-  // Add standard sections
-  blocks.push(customerSection, contextSection);
-
-  // Geolocation Context (if available)
-  if (eventData.agreement?.geolocation) {
-    const geo = eventData.agreement.geolocation;
-    // Use finite checks, not truthiness: latitude/longitude of 0 (equator / prime
-    // meridian) are valid coordinates that a truthiness guard would wrongly drop.
-    const hasCoordinates = Number.isFinite(geo.latitude) && Number.isFinite(geo.longitude);
-    const elements = [];
-
-    if (hasCoordinates) {
-      elements.push({
-        type: "mrkdwn",
-        text: `📍 Coordinates: ${geo.latitude}, ${geo.longitude} (via ${geo.method || 'N/A'})`
-      });
-      elements.push({
-        type: "mrkdwn",
-        text: `<https://www.google.com/maps?q=${geo.latitude},${geo.longitude}|View on Google Maps>`
-      });
-    } else {
-      // No usable coordinates — surface the reported reason instead of rendering "undefined, undefined".
-      elements.push({
-        type: "mrkdwn",
-        text: `📍 Coordinates unavailable${geo.error ? `: ${geo.error}` : ''}`
-      });
-    }
-
-    blocks.push({
-      type: "context",
-      elements: elements
     });
   }
 
-  // Add final actions
-  blocks.push(actions);
+  blocks.push(customerSection, contextSection);
+
+  // Geolocation context (if available)
+  if (eventData.agreement?.geolocation) {
+    const geo = eventData.agreement.geolocation;
+    const elements = [];
+    if (hasCoordinates(geo)) {
+      elements.push(md(`📍 Coordinates: ${geo.latitude}, ${geo.longitude} (via ${geo.method || 'N/A'})`));
+      elements.push(md(`<${mapsUrl(geo)}|View on Google Maps>`));
+    } else {
+      // No usable coordinates — surface the reported reason instead of rendering "undefined, undefined".
+      elements.push(md(`📍 Coordinates unavailable${geo.error ? `: ${geo.error}` : ''}`));
+    }
+    blocks.push({ type: "context", elements });
+  }
+
+  blocks.push(buildViewInMcpAction(eventData.carrier));
 
   return {
-    blocks: blocks,
-    attachments: [
-      {
-        color: "#36C5F0",
-        blocks: []
-      }
-    ],
-    fallbackText: `🎉 Carrier Packet Completed - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
+    blocks,
+    attachments: [{ color: "#36C5F0", blocks: [] }],
+    fallbackText: `🎉 Carrier Packet Completed - ${eventData.carrier?.legalName || 'N/A'} (DOT: ${eventData.carrier?.dotNumber || 'N/A'})`
   };
 }
 
 /**
- * Format message for carrier.incident_report.created event
+ * Assemble the Slack blocks describing an incident report from the documented
+ * `eventData.incidentReport` object. Shared by the created/updated/retracted
+ * formatters, whose payloads are identical in shape.
+ * @param {object} incidentReport - The eventData.incidentReport object.
+ * @returns {object[]} Section/context blocks describing the incident.
  */
-function formatIncidentReportCreatedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
-  const incidentReportHeader = {
-    type: "header",
-    text: {
-      type: "plain_text",
-      text: "⚠️ New Incident Report Created",
-      emoji: true
-    }
-  };
+function buildIncidentReportBlocks(incidentReport = {}) {
+  const origin = [incidentReport.originCity, incidentReport.originStateProvinceName].filter(Boolean).join(', ');
+  const destination = [incidentReport.destinationCity, incidentReport.destinationStateProvinceName].filter(Boolean).join(', ');
+  const route = origin && destination ? `${origin} → ${destination}` : (origin || destination || 'N/A');
+  const incidentTypes = Array.isArray(incidentReport.incidentTypes) && incidentReport.incidentTypes.length
+    ? incidentReport.incidentTypes.join(', ')
+    : 'N/A';
 
-  const incidentDetails = {
-    type: "section",
-    fields: [
-      {
-        type: "mrkdwn",
-        text: `*Incident Type:* ${eventData.incidentReportDetail?.incidentType || 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Incident Date:* ${eventData.incidentReportDetail?.incidentDatetime ? new Date(eventData.incidentReportDetail.incidentDatetime).toLocaleString() : 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Status:* ${eventData.incidentReportDetail?.status || 'New'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Reporter:* ${eventData.incidentReportDetail?.reportedBy || 'Anonymous'}`
-      }
-    ]
-  };
+  const detailFields = [
+    md(`*Incident Type(s):* ${incidentTypes}`),
+    md(`*Incident Date:* ${incidentReport.incidentDate || 'N/A'}`),
+    md(`*Reported By:* ${incidentReport.reportedByCompany || 'N/A'}`),
+    md(`*Route:* ${route}`)
+  ];
+  if (incidentReport.carrierEmails) {
+    detailFields.push(md(`*Carrier Email(s):* ${incidentReport.carrierEmails}`));
+  }
 
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View Incident",
-          emoji: true
-        },
-        url: `https://mycarrierpackets.com/incident-reports/${eventData.incidentReportDetail?.incidentReportID || ''}`,
-        style: "primary"
-      }
-    ]
-  };
+  const blocks = [{ type: "section", fields: detailFields }];
 
-  return {
-    blocks: [
-      incidentReportHeader,
-      {
-        type: "divider"
-      },
-      carrierSection,
-      incidentDetails,
-      customerSection,
-      contextSection,
-      actions
-    ],
-    attachments: [
-      {
-        color: "#E01E5A",
-        blocks: []
-      }
-    ],
-    fallbackText: `⚠️ New Incident Report Created - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
-  };
+  // Comments (each: commenterType, commentBy, commentDate, comment).
+  const comments = Array.isArray(incidentReport.comments) ? incidentReport.comments : [];
+  if (comments.length) {
+    const lines = comments.map((c) => {
+      const who = [c.commenterType, c.commentBy].filter(Boolean).join(' · ');
+      const when = c.commentDate ? ` (${formatDate(c.commentDate)})` : '';
+      return `> *${who || 'Comment'}*${when}: ${c.comment || ''}`;
+    });
+    blocks.push({ type: "section", text: md(`*Comments:*\n${lines.join('\n')}`) });
+  }
+
+  // Audit trail: who created and, if different, who last modified the report.
+  const auditLines = [];
+  if (incidentReport.createdBy || incidentReport.createdDate) {
+    const when = formatDate(incidentReport.createdDate);
+    auditLines.push(`Created by ${incidentReport.createdBy || 'N/A'} on ${when}`);
+  }
+  if (incidentReport.modifiedDate && incidentReport.modifiedDate !== incidentReport.createdDate) {
+    const when = formatDate(incidentReport.modifiedDate);
+    auditLines.push(`Last modified by ${incidentReport.modifiedBy || 'N/A'} on ${when}`);
+  }
+  if (auditLines.length) {
+    blocks.push({ type: "context", elements: auditLines.map((text) => md(text)) });
+  }
+
+  return blocks;
 }
 
 /**
- * Format message for carrier.incident_report.updated event
+ * Shared renderer for the three incident_report events. They carry an identical
+ * payload shape and differ only in heading, accent color, and fallback text.
  */
-function formatIncidentReportUpdatedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
-  const incidentReportHeader = {
-    type: "header",
-    text: {
-      type: "plain_text",
-      text: "🔄 Incident Report Updated",
-      emoji: true
-    }
-  };
-
-  const incidentDetails = {
-    type: "section",
-    fields: [
-      {
-        type: "mrkdwn",
-        text: `*Incident Type:* ${eventData.incidentReportDetail?.incidentType || 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Incident Date:* ${eventData.incidentReportDetail?.incidentDatetime ? new Date(eventData.incidentReportDetail.incidentDatetime).toLocaleString() : 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Status:* ${eventData.incidentReportDetail?.status || 'Updated'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Reporter:* ${eventData.incidentReportDetail?.reportedBy || 'Anonymous'}`
-      }
-    ]
-  };
-
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View Incident",
-          emoji: true
-        },
-        url: `https://mycarrierpackets.com/incident-reports/${eventData.incidentReportDetail?.incidentReportID || ''}`,
-        style: "primary"
-      }
-    ]
-  };
-
+function formatIncidentReportMessage(headerText, color, eventData, carrierSection, customerSection, contextSection) {
   return {
     blocks: [
-      incidentReportHeader,
-      {
-        type: "divider"
-      },
+      { type: "header", text: { type: "plain_text", text: headerText, emoji: true } },
+      { type: "divider" },
       carrierSection,
-      incidentDetails,
+      ...buildIncidentReportBlocks(eventData.incidentReport),
       customerSection,
       contextSection,
-      actions
+      buildViewInMcpAction(eventData.carrier, "View Carrier in MCP")
     ],
-    attachments: [
-      {
-        color: "#ECB22E",
-        blocks: []
-      }
-    ],
-    fallbackText: `🔄 Incident Report Updated - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
-  };
-}
-
-/**
- * Format message for carrier.incident_report.retracted event
- */
-function formatIncidentReportRetractedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
-  const incidentReportHeader = {
-    type: "header",
-    text: {
-      type: "plain_text",
-      text: "❌ Incident Report Retracted",
-      emoji: true
-    }
-  };
-
-  const incidentDetails = {
-    type: "section",
-    fields: [
-      {
-        type: "mrkdwn",
-        text: `*Incident Type:* ${eventData.incidentReportDetail?.incidentType || 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Incident Date:* ${eventData.incidentReportDetail?.incidentDatetime ? new Date(eventData.incidentReportDetail.incidentDatetime).toLocaleString() : 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Retraction Reason:* ${eventData.incidentReportDetail?.retractionReason || 'Not specified'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Retracted By:* ${eventData.incidentReportDetail?.retractedBy || 'System'}`
-      }
-    ]
-  };
-
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View Details",
-          emoji: true
-        },
-        url: `https://mycarrierpackets.com/incident-reports/${eventData.incidentReportDetail?.incidentReportID || ''}`,
-        style: "primary"
-      }
-    ]
-  };
-
-  return {
-    blocks: [
-      incidentReportHeader,
-      {
-        type: "divider"
-      },
-      carrierSection,
-      incidentDetails,
-      customerSection,
-      contextSection,
-      actions
-    ],
-    attachments: [
-      {
-        color: "#7B7B7B",
-        blocks: []
-      }
-    ],
-    fallbackText: `❌ Incident Report Retracted - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
+    attachments: [{ color, blocks: [] }],
+    fallbackText: `${headerText} - ${eventData.carrier?.legalName || 'N/A'} (DOT: ${eventData.carrier?.dotNumber || 'N/A'})`
   };
 }
 
 /**
  * Format message for carrier.vin_verification.completed event
  */
-function formatVinVerificationCompletedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
+function formatVinVerificationCompletedMessage(eventData, carrierSection, customerSection, contextSection) {
   const vinVerificationHeader = {
     type: "header",
-    text: {
-      type: "plain_text",
-      text: "🚚 VIN Verification Completed",
-      emoji: true
-    }
+    text: { type: "plain_text", text: "🚚 VIN Verification Completed", emoji: true }
   };
+
+  const vin = eventData.vinVerificationDetail || {};
 
   const vinDetails = {
     type: "section",
     fields: [
-      {
-        type: "mrkdwn",
-        text: `*VIN:* ${eventData.vinVerificationDetail?.vin || 'N/A'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Status:* ${eventData.vinVerificationDetail?.vinVerificationStatus || 'Completed'}`
-      }
+      md(`*VIN:* ${vin.vin || 'N/A'}`),
+      md(`*Status:* ${vin.vinVerificationStatus || 'Completed'}`)
     ]
   };
 
-  // Add additional VIN verification details if available
-  if (eventData.vinVerificationDetail?.vinVerificationStatus === 'VINBelongsToAnotherCarrier') {
-    vinDetails.fields.push({
-      type: "mrkdwn",
-      text: `*Other DOT:* ${eventData.vinVerificationDetail?.otherDOTNumber || 'N/A'}`
-    });
+  // otherDOTNumber is only meaningful when the VIN maps to a different carrier.
+  if (vin.vinVerificationStatus === 'VINBelongsToAnotherCarrier') {
+    vinDetails.fields.push(md(`*Other DOT:* ${vin.otherDOTNumber || 'N/A'}`));
   }
 
-  // Location information if available
-  let locationSection = null;
-  if (eventData.vinVerificationDetail?.imageUploadedGeolocation) {
-    const geo = eventData.vinVerificationDetail.imageUploadedGeolocation;
-    locationSection = {
-      type: "section",
-      fields: [
-        {
-          type: "mrkdwn",
-          text: `*Image Location:* ${geo.latitude}, ${geo.longitude}`
-        },
-        {
-          type: "mrkdwn",
-          text: `*Location Method:* ${geo.method || 'N/A'}`
-        }
-      ]
-    };
+  // Uploader attribution (documented fields).
+  const uploadedBy = fullName(vin.imageUploadedByFirstName, vin.imageUploadedByLastName);
+  if (uploadedBy) {
+    vinDetails.fields.push(md(`*Uploaded By:* ${uploadedBy}`));
   }
-
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View in MCP",
-          emoji: true
-        },
-        url: buildCarrierUrl(eventData.carrier),
-        style: "primary"
-      }
-    ]
-  };
+  if (vin.imageUploadedDateTime) {
+    vinDetails.fields.push(md(`*Uploaded At:* ${formatDate(vin.imageUploadedDateTime)}`));
+  }
 
   const blocks = [
     vinVerificationHeader,
-    {
-      type: "divider"
-    },
+    { type: "divider" },
     carrierSection,
     vinDetails
   ];
 
-  if (locationSection) {
-    blocks.push(locationSection);
+  // Location of the uploaded image, when coordinates are usable.
+  const geo = vin.imageUploadedGeolocation;
+  if (hasCoordinates(geo)) {
+    blocks.push({
+      type: "section",
+      fields: [
+        md(`*Image Location:* <${mapsUrl(geo)}|${geo.latitude}, ${geo.longitude}>`),
+        md(`*Location Method:* ${geo.method || 'N/A'}`)
+      ]
+    });
+  }
+
+  const actions = buildViewInMcpAction(eventData.carrier);
+  // Direct link to the submitted VIN image, when provided. Slack rejects the
+  // entire message if a button url is not a valid http(s) URL, so validate it.
+  if (/^https?:\/\//.test(vin.vinImageUrl || '')) {
+    actions.elements.push({
+      type: "button",
+      text: { type: "plain_text", text: "View VIN Image", emoji: true },
+      url: vin.vinImageUrl
+    });
   }
 
   blocks.push(customerSection, contextSection, actions);
 
   return {
-    blocks: blocks,
-    attachments: [
-      {
-        color: "#2EB67D",
-        blocks: []
-      }
-    ],
-    fallbackText: `🚚 VIN Verification Completed - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
+    blocks,
+    attachments: [{ color: "#2EB67D", blocks: [] }],
+    fallbackText: `🚚 VIN Verification Completed - ${eventData.carrier?.legalName || 'N/A'} (DOT: ${eventData.carrier?.dotNumber || 'N/A'})`
   };
 }
 
 /**
  * Format message for carrier.user_verification.completed event
  */
-function formatUserVerificationCompletedMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
+function formatUserVerificationCompletedMessage(formattedDate, eventData, carrierSection, customerSection, contextSection) {
   const userVerificationHeader = {
     type: "header",
-    text: {
-      type: "plain_text",
-      text: "👤 User Verification Completed",
-      emoji: true
-    }
+    text: { type: "plain_text", text: "👤 User Verification Completed", emoji: true }
   };
+
+  const user = eventData.userVerificationDetail || {};
 
   const userDetails = {
     type: "section",
     fields: [
-      {
-        type: "mrkdwn",
-        text: `*Name:* ${eventData.userVerificationDetail?.firstName || ''} ${eventData.userVerificationDetail?.lastName || ''}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Role:* ${eventData.userVerificationDetail?.role || 'N/A'} ${eventData.userVerificationDetail?.otherRole ? `(${eventData.userVerificationDetail.otherRole})` : ''}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Status:* ${eventData.userVerificationDetail?.verificationStatus || 'Completed'}`
-      },
-      {
-        type: "mrkdwn",
-        text: `*Phone:* ${eventData.userVerificationDetail?.phoneNumber || 'N/A'}`
-      }
+      md(`*Name:* ${fullName(user.firstName, user.lastName) || 'N/A'}`),
+      md(`*Role:* ${user.role || 'N/A'} ${user.otherRole ? `(${user.otherRole})` : ''}`),
+      md(`*Status:* ${user.verificationStatus || 'Completed'}`),
+      md(`*Phone:* ${formatPhoneNumber(user.phoneNumber) || 'N/A'}`)
     ]
   };
 
-  // Add verification timestamp if available
-  const verificationTimestamp = eventData.userVerificationDetail?.verificationDatetime
-    ? new Date(eventData.userVerificationDetail.verificationDatetime).toLocaleString()
+  // Verification-specific timestamp (falls back to the event time when absent).
+  const verificationTimestamp = user.verificationDatetime
+    ? formatDate(user.verificationDatetime)
     : formattedDate;
 
   const verificationTimestampSection = {
     type: "context",
-    elements: [
-      {
-        type: "mrkdwn",
-        text: `Verification completed at *${verificationTimestamp}*`
-      }
-    ]
-  };
-
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View in MCP",
-          emoji: true
-        },
-        url: buildCarrierUrl(eventData.carrier),
-        style: "primary"
-      }
-    ]
+    elements: [md(`Verification completed at *${verificationTimestamp}*`)]
   };
 
   // Status-based color coding
   let color = "#2EB67D"; // Default green for verified
-  if (eventData.userVerificationDetail?.verificationStatus === 'Denied') {
+  if (user.verificationStatus === 'Denied') {
     color = "#E01E5A"; // Red for denied
-  } else if (eventData.userVerificationDetail?.verificationStatus === 'FollowUp' || 
-             eventData.userVerificationDetail?.verificationStatus === 'Pending') {
+  } else if (user.verificationStatus === 'FollowUp' || user.verificationStatus === 'Pending') {
     color = "#ECB22E"; // Yellow for follow-up/pending
   }
 
   return {
     blocks: [
       userVerificationHeader,
-      {
-        type: "divider"
-      },
+      { type: "divider" },
       carrierSection,
       userDetails,
       customerSection,
       verificationTimestampSection,
       contextSection,
-      actions
+      buildViewInMcpAction(eventData.carrier)
     ],
-    attachments: [
-      {
-        color: color,
-        blocks: []
-      }
-    ],
-    fallbackText: `👤 User Verification Completed - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
+    attachments: [{ color, blocks: [] }],
+    fallbackText: `👤 User Verification Completed - ${eventData.carrier?.legalName || 'N/A'} (DOT: ${eventData.carrier?.dotNumber || 'N/A'})`
   };
 }
 
 /**
  * Default formatter for unknown event types
  */
-function formatDefaultMessage(eventType, formattedDate, eventData, carrierSection, customerSection, contextSection) {
+function formatDefaultMessage(eventType, eventData, carrierSection, customerSection, contextSection) {
   const genericHeader = {
     type: "header",
-    text: {
-      type: "plain_text",
-      text: `📢 MCP Event: ${eventType}`,
-      emoji: true
-    }
-  };
-
-  const actions = {
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "View in MCP",
-          emoji: true
-        },
-        url: buildCarrierUrl(eventData.carrier),
-        style: "primary"
-      }
-    ]
+    text: { type: "plain_text", text: `📢 MCP Event: ${eventType}`, emoji: true }
   };
 
   return {
     blocks: [
       genericHeader,
-      {
-        type: "divider"
-      },
+      { type: "divider" },
       carrierSection,
       customerSection,
       contextSection,
-      actions
+      buildViewInMcpAction(eventData.carrier)
     ],
-    attachments: [
-      {
-        color: "#9B59B6",
-        blocks: []
-      }
-    ],
-    fallbackText: `📢 MCP Event: ${eventType} - ${eventData.carrier.legalName} (DOT: ${eventData.carrier.dotNumber})`
+    attachments: [{ color: "#9B59B6", blocks: [] }],
+    fallbackText: `📢 MCP Event: ${eventType} - ${eventData.carrier?.legalName || 'N/A'} (DOT: ${eventData.carrier?.dotNumber || 'N/A'})`
   };
 }
 

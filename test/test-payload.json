@@ -1,15 +1,31 @@
 {
   "eventType": "carrier.packet.completed",
-  "eventDateTime": "2025-05-21T14:37:19.3NZ",
+  "eventDateTime": "2025-04-29T22:16:41.5102923Z",
   "eventData": {
-    "packetDetail": {
-      "packetType": "Standard",
-      "completionDatetime": "2025-05-21T14:37:19.3NZ"
+    "agreement": {
+      "signatureDate": "2025-04-29T22:16:20.6352903",
+      "signaturePerson": "MCP Test Carrier",
+      "signaturePersonTitle": "President",
+      "signaturePersonEmail": "test9999997@test.com",
+      "signaturePersonPhoneNumber": "9999999999",
+      "ipAddress": {
+        "address": "127.0.0.1",
+        "city": "New York City",
+        "region": "New York",
+        "country": "United States of America"
+      },
+      "geolocation": {
+        "latitude": 34.0544,
+        "longitude": -118.244,
+        "error": null,
+        "method": "IPAddress"
+      }
     },
     "carrier": {
       "dotNumber": 9999997,
       "docketNumber": "MC9999997",
-      "legalName": "MCP TEST CARRIER 9999997"
+      "legalName": "MCP TEST CARRIER 9999997",
+      "dbaName": null
     },
     "customer": {
       "customerID": 6,
