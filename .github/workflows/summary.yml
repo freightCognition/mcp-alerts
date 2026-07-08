@@ -14,11 +14,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Run AI inference
         id: inference
-        uses: actions/ai-inference@v1
+        uses: actions/ai-inference@b81b2afb8390ee6839b494a404766bef6493c7d9 # v1.2.8
         with:
           prompt: |
             Summarize the following GitHub issue in one paragraph:
@@ -26,8 +26,7 @@ jobs:
             Body: ${{ github.event.issue.body }}
 
       - name: Comment with AI summary
-        run: |
-          gh issue comment $ISSUE_NUMBER --body '${{ steps.inference.outputs.response }}'
+        run: gh issue comment "$ISSUE_NUMBER" --body "$RESPONSE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
