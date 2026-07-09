@@ -255,7 +255,9 @@ function buildIncidentReportBlocks(incidentReport = {}) {
     md(`*Route:* ${route}`)
   ];
   if (incidentReport.carrierEmails) {
-    detailFields.push(md(`*Carrier Email(s):* ${incidentReport.carrierEmails}`));
+    const emailsText = `*Carrier Email(s):* ${incidentReport.carrierEmails}`;
+    // Slack section field text caps out at 2000 chars; truncate to stay under that.
+    detailFields.push(md(emailsText.length > 1900 ? `${emailsText.slice(0, 1897)}...` : emailsText));
   }
 
   const blocks = [{ type: "section", fields: detailFields }];
