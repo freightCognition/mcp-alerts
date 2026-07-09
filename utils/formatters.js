@@ -268,7 +268,9 @@ function buildIncidentReportBlocks(incidentReport = {}) {
       const when = c.commentDate ? ` (${formatDate(c.commentDate)})` : '';
       return `> *${who || 'Comment'}*${when}: ${c.comment || ''}`;
     });
-    blocks.push({ type: "section", text: md(`*Comments:*\n${lines.join('\n')}`) });
+    const commentsText = `*Comments:*\n${lines.join('\n')}`;
+    // Slack section text blocks cap out at 3000 chars; truncate to stay under that.
+    blocks.push({ type: "section", text: md(commentsText.length > 2900 ? `${commentsText.slice(0, 2897)}...` : commentsText) });
   }
 
   // Audit trail: who created and, if different, who last modified the report.
