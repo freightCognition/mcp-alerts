@@ -169,3 +169,19 @@ const SUPPORTED_EVENTS = [
     process.exit(1);
   }
 })();
+
+// Cleanly close the Socket Mode connection on shutdown so Slack doesn't
+// hold onto a stale connection that collides with the next one on redeploy
+// (a stale connection triggers a server-side "too_many_websockets" disconnect).
+async function shutdown(signal) {
+  console.log(`Received ${signal}, shutting down...`);
+  try {
+    await slackApp.stop();
+  } catch (error) {
+    console.error('Error while stopping Slack app:', error);
+  }
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
