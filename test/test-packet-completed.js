@@ -1,6 +1,6 @@
 /**
  * Test script for carrier.packet.completed webhook
- * This script helps verify the webhook payload structure and test the URL formatting
+ * Sends (or simulates) a packet.completed webhook and prints the formatted Slack message.
  */
 
 require('dotenv').config();
@@ -21,29 +21,40 @@ const { formatSlackMessage } = require('../utils/formatters');
 const WEBHOOK_URL = `http://localhost:${process.env.PORT || 3001}${process.env.MCP_WEBHOOK_URL_PATH || '/webhooks/mcp'}`;
 const SIMULATE_ONLY = process.argv.includes('--simulate'); // Add --simulate to only test formatting without sending
 
-// Sample webhook payload for carrier.packet.completed
-// Adjust this based on your actual webhook payload structure
+// Sample webhook payload for carrier.packet.completed (matches the documented MCP schema).
 const sampleWebhookPayload = {
   eventType: 'carrier.packet.completed',
-  eventDateTime: new Date().toISOString(),
+  eventDateTime: '2025-04-29T22:16:41.5102923Z',
   eventData: {
+    agreement: {
+      signatureDate: '2025-04-29T22:16:20.6352903',
+      signaturePerson: 'MCP Test Carrier',
+      signaturePersonTitle: 'President',
+      signaturePersonEmail: 'test9999997@test.com',
+      signaturePersonPhoneNumber: '9999999999',
+      agreementImageBlobName: 'company-agreement/6/b7453f55-3f3b-454d-8726-89f746082a06',
+      ipAddress: {
+        address: '127.0.0.1',
+        city: 'New York City',
+        region: 'New York',
+        country: 'United States of America'
+      },
+      geolocation: {
+        latitude: 34.0544,
+        longitude: -118.244,
+        error: null,
+        method: 'IPAddress'
+      }
+    },
     carrier: {
-      legalName: 'RC ZONE INC',
-      dbaName: null,
-      dotNumber: '2491899',
-      docketNumber: 'MC863051'
+      dotNumber: 9999997,
+      docketNumber: 'MC9999997',
+      legalName: 'MCP TEST CARRIER 9999997',
+      dbaName: null
     },
     customer: {
-      companyName: 'LINEHAUL TRUCKING LLC',
-      customerID: '2168'
-    },
-    packetDetail: {
-      packetType: 'Standard',
-      completionDatetime: new Date().toISOString(),
-      // These are the fields we're trying to identify:
-      packetId: '12345',  // Adjust based on actual field name
-      id: '12345',        // Alternative field name
-      // Add other fields you see in real payloads
+      customerID: 6,
+      companyName: 'MCP Test Customer'
     }
   }
 };
@@ -69,14 +80,13 @@ async function testWebhook() {
     if (actionsBlock && actionsBlock.elements[0]) {
       const viewButton = actionsBlock.elements[0];
       console.log('📎 View in MCP Button URL:', viewButton.url);
-      console.log('   Expected format: https://mycarrierpackets.com/carriers/[DOT]/packets/[PACKET_ID]');
+      console.log('   Expected format: https://mycarrierpackets.com/CarrierInformation/DOTNumber/[DOT]/DocketNumber/[MC]');
       console.log(`   Actual result: ${viewButton.url}\n`);
       
-      // Check if packet ID is missing
-      if (viewButton.url.endsWith('/packets/')) {
-        console.log('⚠️  WARNING: Packet ID appears to be missing from the URL!');
-        console.log('   This suggests packetDetail.packetId and packetDetail.id are not present.');
-        console.log('   You may need to adjust the field names in formatters.js\n');
+      // Check if the URL contains the correct base path
+      if (!viewButton.url.includes('/CarrierInformation/DOTNumber/')) {
+        console.log('⚠️  WARNING: The URL does not seem to match the new format!');
+        console.log('   Please check the formatters.js file.\n');
       }
     }
     
@@ -126,11 +136,8 @@ async function testWebhook() {
   // Step 3: Provide debugging suggestions
   console.log('\n3️⃣  Debugging Tips:');
   console.log('=====================================');
-  console.log('1. Check actual webhook payloads from MCP to see the real structure');
-  console.log('2. Look for fields like: packetId, packet_id, id, packetNumber, etc.');
-  console.log('3. Verify the correct URL pattern by checking a working packet URL in MyCarrierPackets.com');
-  console.log('4. Update the packetDetail fields in this test script to match real data');
-  console.log('5. Add console.log(eventData) in formatPacketCompletedMessage to see the full payload\n');
+  console.log('1. Verify the URL pattern against a working packet URL in MyCarrierPackets.com');
+  console.log('2. Add console.log(eventData) in formatPacketCompletedMessage to inspect the full payload\n');
 }
 
 // Alternative: Test with custom payload from command line
