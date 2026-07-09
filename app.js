@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const { formatSlackMessage } = require('./utils/formatters');
 const { sendWebhookMessage } = require('./utils/slackClient');
 const { mcpVerifyMiddleware, getExpressVerifyCallback } = require('./utils/verifier');
+const { gracefulShutdown } = require('./utils/shutdown');
 
 // Initialize Express app
 const expressApp = express();
@@ -185,20 +186,7 @@ async function shutdown(signal) {
 
   console.log(`Received ${signal}, shutting down...`);
 
-  if (httpServer) {
-    httpServer.close();
-  }
-
-  const timeout = new Promise((resolve) => setTimeout(() => {
-    console.error(`slackApp.stop() did not complete within ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit`);
-    resolve();
-  }, SHUTDOWN_TIMEOUT_MS));
-
-  try {
-    await Promise.race([slackApp.stop(), timeout]);
-  } catch (error) {
-    console.error('Error while stopping Slack app:', error);
-  }
+  await gracefulShutdown({ httpServer, slackApp, timeoutMs: SHUTDOWN_TIMEOUT_MS });
   process.exit(0);
 }
 
