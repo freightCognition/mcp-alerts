@@ -142,6 +142,7 @@ const SUPPORTED_EVENTS = [
 ];
 
 // Start both apps
+let httpServer;
 (async () => {
   try {
     // Start the Slack app first
@@ -155,7 +156,7 @@ const SUPPORTED_EVENTS = [
     const webhookPath = process.env.MCP_WEBHOOK_URL_PATH || '/webhooks/mcp';
     const publicAppUrl = process.env.PUBLIC_APP_URL;
 
-    expressApp.listen(port, () => {
+    httpServer = expressApp.listen(port, () => {
       console.log(`Express server is running on port ${port}`);
       const localWebhookUrl = `http://localhost:${port}${webhookPath}`;
       console.log(`Local Webhook URL: ${localWebhookUrl}`);
@@ -173,10 +174,28 @@ const SUPPORTED_EVENTS = [
 // Cleanly close the Socket Mode connection on shutdown so Slack doesn't
 // hold onto a stale connection that collides with the next one on redeploy
 // (a stale connection triggers a server-side "too_many_websockets" disconnect).
+// slackApp.stop() has no internal timeout - if the websocket teardown hangs,
+// force the exit anyway so SIGTERM doesn't wait for the orchestrator's SIGKILL.
+const SHUTDOWN_TIMEOUT_MS = 5000;
+let shuttingDown = false;
+
 async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
   console.log(`Received ${signal}, shutting down...`);
+
+  if (httpServer) {
+    httpServer.close();
+  }
+
+  const timeout = new Promise((resolve) => setTimeout(() => {
+    console.error(`slackApp.stop() did not complete within ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit`);
+    resolve();
+  }, SHUTDOWN_TIMEOUT_MS));
+
   try {
-    await slackApp.stop();
+    await Promise.race([slackApp.stop(), timeout]);
   } catch (error) {
     console.error('Error while stopping Slack app:', error);
   }
